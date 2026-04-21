@@ -39,19 +39,18 @@ pipeline {
 }
 
         stage('SonarQube Analysis') {
-            steps {
-                echo '🔍 Running code quality analysis...'
-                dir('backend') {
-                    sh """
-                        mvn sonar:sonar \
-                            -Dsonar.projectKey=logguard-backend \
-                            -Dsonar.host.url=${SONAR_URL} \
-                            -Dsonar.login=admin \
-                            -Dsonar.password=admin
-                    """
-                }
-            }
+    steps {
+        echo '🔍 Running code quality analysis...'
+        dir('backend') {
+            sh """
+                mvn sonar:sonar \
+                    -Dsonar.projectKey=logguard-backend \
+                    -Dsonar.host.url=${SONAR_URL} \
+                    -Dsonar.token=sqa_8055f593211935c8690ad58e138528b4a6d215b4
+            """
         }
+    }
+}
 
         stage('Docker Build') {
             steps {
