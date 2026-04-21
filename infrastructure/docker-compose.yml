@@ -1,0 +1,79 @@
+version: '3.8'
+
+networks:
+  devsentinel-net:
+    driver: bridge
+
+volumes:
+  jenkins_home:
+  sonarqube_data:
+  sonarqube_logs:
+  sonarqube_extensions:
+  postgres_data:
+
+
+services:
+
+  # ─────────────────────────────────────────────
+  # JENKINS — CI/CD Brain
+  # Access at: http://localhost:8080
+  # ─────────────────────────────────────────────
+  jenkins:
+    build:
+      context: ./jenkins
+      dockerfile: Dockerfile
+    container_name: devsentinel-jenkins
+    restart: unless-stopped
+    ports:
+      - "8090:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - devsentinel-net
+    environment:
+      - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
+    depends_on:
+      - sonarqube
+
+  # ─────────────────────────────────────────────
+  # SONARQUBE — Code Quality Gate
+  # Access at: http://localhost:9000
+  # Default login: admin / admin
+  # ─────────────────────────────────────────────
+  sonarqube:
+    image: sonarqube:lts-community
+    container_name: devsentinel-sonarqube
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    environment:
+      - SONAR_JDBC_URL=jdbc:postgresql://postgres:5432/sonarqube
+      - SONAR_JDBC_USERNAME=sonar
+      - SONAR_JDBC_PASSWORD=sonar
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_logs:/opt/sonarqube/logs
+      - sonarqube_extensions:/opt/sonarqube/extensions
+    networks:
+      - devsentinel-net
+    depends_on:
+      - postgres
+
+  # ─────────────────────────────────────────────
+  # POSTGRES — Database for SonarQube
+  # (SonarQube needs a DB to store scan results)
+  # ─────────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: devsentinel-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=sonar
+      - POSTGRES_PASSWORD=sonar
+      - POSTGRES_DB=sonarqube
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - devsentinel-net
