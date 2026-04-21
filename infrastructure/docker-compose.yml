@@ -16,13 +16,14 @@ services:
 
   # ─────────────────────────────────────────────
   # JENKINS — CI/CD Brain
-  # Access at: http://localhost:8080
+  # Access at: http://localhost:8090
   # ─────────────────────────────────────────────
   jenkins:
     build:
       context: ./jenkins
       dockerfile: Dockerfile
     container_name: devsentinel-jenkins
+    user: root
     restart: unless-stopped
     ports:
       - "8090:8080"
@@ -34,6 +35,9 @@ services:
       - devsentinel-net
     environment:
       - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     depends_on:
       - sonarqube
 

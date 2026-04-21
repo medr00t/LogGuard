@@ -13,8 +13,8 @@ RUN apt-get update && apt-get install -y \
 # Add jenkins user to docker group so it can run docker commands
 RUN usermod -aG docker jenkins
 
-# Switch back to jenkins user (security best practice)
-USER jenkins
+# Stay as root so Docker socket access works on Windows/Docker Desktop
+# (acceptable for local development and demo purposes)
 
 # Pre-install useful Jenkins plugins
 RUN jenkins-plugin-cli --plugins \
