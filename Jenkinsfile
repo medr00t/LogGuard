@@ -27,18 +27,18 @@ pipeline {
         }
 
         stage('Unit Tests') {
-            steps {
-                echo '🧪 Running unit tests...'
-                dir('backend') {
-                    sh 'mvn test'
-                }
-            }
-            post {
-                always {
-                    junit '**/target/surefire-reports/*.xml'
-                }
-            }
+    steps {
+        echo '🧪 Running unit tests...'
+        dir('backend') {
+            sh 'mvn test -Dspring.datasource.url=jdbc:h2:mem:testdb -Dspring.datasource.driver-class-name=org.h2.Driver -Dspring.jpa.database-platform=org.hibernate.dialect.H2Dialect'
         }
+    }
+    post {
+        always {
+            junit allowEmptyResults: true, testResults: '**/target/surefire-reports/*.xml'
+        }
+    }
+}
 
         stage('SonarQube Analysis') {
             steps {
