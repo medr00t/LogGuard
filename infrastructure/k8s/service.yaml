@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: logguard-backend-service
+  namespace: default
+  labels:
+    app: logguard-backend
+spec:
+  type: NodePort          # Exposes the app on your local machine
+  selector:
+    app: logguard-backend # Targets pods with this label
+  ports:
+    - protocol: TCP
+      port: 80            # Port the service listens on
+      targetPort: 8080    # Port the container listens on (Spring Boot)
+      nodePort: 30080     # Port on your local machine -> localhost:30080

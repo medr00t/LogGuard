@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logguard-backend
+  namespace: default
+  labels:
+    app: logguard-backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: logguard-backend
+  template:
+    metadata:
+      labels:
+        app: logguard-backend
+    spec:
+      containers:
+        - name: logguard-backend
+          image: skrrrrtoxx/logguard-backend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+
+          # Inject database connection — points to postgres-service in Kubernetes
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:postgresql://postgres-service:5432/logguard"
+            - name: SPRING_DATASOURCE_USERNAME
+              value: "logguard"
+            - name: SPRING_DATASOURCE_PASSWORD
+              value: "logguard"
+
+          # Health checks — self-healing mechanism
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 40
+            periodSeconds: 5
+
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: logguard-backend-hpa
+  namespace: default
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: logguard-backend
+  minReplicas: 2
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
