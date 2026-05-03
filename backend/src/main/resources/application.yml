@@ -3,9 +3,9 @@ spring:
     name: logguard-backend
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/logguard
-    username: logguard
-    password: logguard123
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/logguard}
+    username: ${SPRING_DATASOURCE_USERNAME:logguard}
+    password: ${SPRING_DATASOURCE_PASSWORD:logguard123}
     driver-class-name: org.postgresql.Driver
 
   jpa:

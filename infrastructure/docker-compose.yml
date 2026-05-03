@@ -73,6 +73,8 @@ services:
     image: postgres:15-alpine
     container_name: devsentinel-postgres
     restart: unless-stopped
+    ports:
+      - "5432:5432"        # ← add this
     environment:
       - POSTGRES_USER=sonar
       - POSTGRES_PASSWORD=sonar
