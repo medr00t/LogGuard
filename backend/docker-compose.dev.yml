@@ -1,0 +1,27 @@
+services:
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: logguard
+      POSTGRES_USER: logguard
+      POSTGRES_PASSWORD: logguard
+
+  ai-engine:
+    build: ../ai-engine
+    ports:
+      - "5000:5000"
+
+  backend:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/logguard
+      SPRING_DATASOURCE_USERNAME: logguard
+      SPRING_DATASOURCE_PASSWORD: logguard
+      SPRING_JPA_HIBERNATE_DDL_AUTO: create
+      AI_ENGINE_URL: http://ai-engine:5000
+    depends_on:
+      - postgres
+      - ai-engine

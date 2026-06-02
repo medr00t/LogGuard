@@ -1,0 +1,38 @@
+services:
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: logguard-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: logguard
+      POSTGRES_USER: logguard
+      POSTGRES_PASSWORD: logguard
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  ai-engine:
+    build: ./ai-engine
+    container_name: logguard-ai-engine
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+
+  backend:
+    build: ./backend
+    container_name: logguard-backend
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/logguard
+      SPRING_DATASOURCE_USERNAME: logguard
+      SPRING_DATASOURCE_PASSWORD: logguard
+      SPRING_JPA_HIBERNATE_DDL_AUTO: create
+      AI_ENGINE_URL: http://ai-engine:5000
+    depends_on:
+      - postgres
+      - ai-engine
+
+volumes:
+  postgres_data:

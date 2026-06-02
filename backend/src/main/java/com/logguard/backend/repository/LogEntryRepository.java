@@ -10,4 +10,5 @@ import java.util.List;
 public interface LogEntryRepository extends JpaRepository<LogEntry, Long> {
     List<LogEntry> findBySourceAndLevelInAndTimestampAfter(String source, List<LogLevel> levels, LocalDateTime after);
     List<LogEntry> findByMessageAndTimestampAfter(String message, LocalDateTime after);
+    List<LogEntry> findByTimestampAfterOrderByTimestampDesc(LocalDateTime after);
 }

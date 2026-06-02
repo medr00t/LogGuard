@@ -10,7 +10,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: none
     show-sql: true
 
 server:
@@ -19,6 +19,10 @@ server:
 jwt:
   secret: ${JWT_SECRET:logguard-secret-key-must-be-at-least-32-chars!!}
   expiration-ms: 86400000
+
+ai:
+  engine:
+    url: ${AI_ENGINE_URL:http://localhost:5000}
 
 management:
   endpoints:
