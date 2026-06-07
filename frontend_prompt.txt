@@ -1,0 +1,239 @@
+The project is an Angular 17 standalone-component app at ~/WebstormProjects/loggerguard-frontend.
+It already has pages for logs, alerts, anomalies, dashboard, and login.
+Add a full Deployments feature. Do NOT touch any existing files except the three listed below.
+
+────────────────────────────────────────
+1. CREATE  src/app/core/services/deployment.service.ts
+────────────────────────────────────────
+Injectable service (providedIn: 'root') that uses Angular HttpClient.
+Base URL: 'http://localhost:8080/api'  (same pattern as the other services in this folder).
+
+Methods:
+  getAll():    Observable<Deployment[]>   → GET  /deployments
+  getById(id): Observable<Deployment>    → GET  /deployments/{id}
+  trigger(repoUrl: string, branch: string): Observable<Deployment>
+                                          → POST /deployments
+                                            body: { repoUrl, branch }
+
+Deployment interface (define in the same file):
+  id: number
+  repoUrl: string
+  branch: string
+  status: 'PENDING' | 'CLONING' | 'BUILDING' | 'DEPLOYING' | 'SUCCESS' | 'FAILED'
+  createdAt: string
+
+────────────────────────────────────────
+2. CREATE  src/app/pages/deployments/  (three files)
+────────────────────────────────────────
+deployments.component.ts
+deployments.component.html
+deployments.component.scss
+
+---- deployments.component.ts ----
+Standalone component. Imports: CommonModule, ReactiveFormsModule, HttpClientModule (or use inject).
+Use the same patterns as the other pages in this project:
+  - constructor-injected services
+  - subscribe() in ngOnInit
+  - setInterval for polling (clear in ngOnDestroy)
+  - loading/error boolean flags
+
+State:
+  deployments: Deployment[] = []
+  selectedId: number | null = null
+  deployLogs: any[] = []        ← logs filtered for the selected deployment
+  loading = false
+  submitting = false
+  error = ''
+  form = FormGroup with controls: repoUrl (required), branch (default 'main')
+
+ngOnInit: call loadDeployments(), then setInterval(loadDeployments, 3000)
+ngOnDestroy: clearInterval
+
+loadDeployments(): GET /api/deployments via DeploymentService.getAll(),
+  assign result to this.deployments, sort by createdAt descending.
+
+onSubmit():
+  if form invalid return
+  set submitting = true
+  call DeploymentService.trigger(repoUrl, branch)
+  on next: reset form, call loadDeployments()
+  on error: set error message
+  finally: submitting = false
+
+selectDeployment(id: number):
+  if selectedId === id, set selectedId = null and return (toggle off)
+  set selectedId = id
+  fetch GET /api/logs via HttpClient (inject it directly here)
+  filter the result array keeping only entries where source === 'deployment-worker-' + id
+  assign to deployLogs
+  sort by timestamp descending
+
+statusColor(status): returns one of these CSS variable strings:
+  PENDING   → 'var(--tx-4)'
+  CLONING   → 'var(--info)'
+  BUILDING  → 'var(--warn)'
+  DEPLOYING → 'oklch(0.75 0.15 60)'
+  SUCCESS   → 'var(--ok)'
+  FAILED    → 'var(--crit)'
+
+levelColor(level): (for log rows)
+  INFO  → 'var(--info)'
+  WARN  → 'var(--warn)'
+  ERROR → 'var(--crit)'
+  FATAL → 'var(--crit)'
+  DEBUG → 'var(--tx-4)'
+
+---- deployments.component.html ----
+Follow the same HTML patterns used in the existing pages (incidents, metrics, deploy).
+Use the project's existing CSS classes: .lg-page, .lg-card, .lg-table, .lg-btn,
+.lg-badge, .lg-loading, .lg-empty.
+Use Angular 17 control flow: @if, @for, @switch — no *ngIf or *ngFor.
+
+Structure:
+
+<div class="lg-page">
+
+  <!-- Page header -->
+  <div class="page-header">
+    <h1>Deployments</h1>
+    <p class="dim">Deploy any public GitHub repository — track build status in real time</p>
+  </div>
+
+  <!-- Trigger form card -->
+  <div class="lg-card" style="...">
+    <h2>New Deployment</h2>
+    <form (ngSubmit)="onSubmit()" [formGroup]="form">
+      <!-- repoUrl input: placeholder "https://github.com/owner/repo" -->
+      <!-- branch input: placeholder "main" -->
+      <!-- Submit button: text "Deploy", disabled while submitting, class lg-btn primary -->
+    </form>
+    @if (error) { <p class="error-msg">{{ error }}</p> }
+  </div>
+
+  <!-- Deployments table card -->
+  <div class="lg-card">
+    <h2>All Deployments</h2>
+    @if (loading) { <div class="lg-loading">Loading...</div> }
+    @else if (!deployments.length) { <div class="lg-empty">No deployments yet.</div> }
+    @else {
+      <table class="lg-table">
+        <thead>
+          <tr><th>ID</th><th>Repository</th><th>Branch</th><th>Status</th><th>Started</th></tr>
+        </thead>
+        <tbody>
+          @for (d of deployments; track d.id) {
+            <tr (click)="selectDeployment(d.id)" style="cursor:pointer"
+                [class.active]="selectedId === d.id">
+              <td class="mono">{{ d.id }}</td>
+              <td class="trunc" style="max-width:280px">{{ d.repoUrl }}</td>
+              <td class="mono">{{ d.branch }}</td>
+              <td>
+                <span class="lg-badge" [style.color]="statusColor(d.status)"
+                                       [style.background]="statusColor(d.status) + '22'">
+                  {{ d.status }}
+                </span>
+              </td>
+              <td class="dim">{{ d.createdAt | date:'dd MMM HH:mm:ss' }}</td>
+            </tr>
+
+            <!-- Expanded log panel inline below the row -->
+            @if (selectedId === d.id) {
+              <tr class="log-panel-row">
+                <td colspan="5">
+                  <div class="log-panel">
+                    <p class="dim" style="margin-bottom:8px">
+                      Build logs for deployment #{{ d.id }}
+                    </p>
+                    @if (!deployLogs.length) {
+                      <p class="dim">No logs yet — refresh in a moment.</p>
+                    } @else {
+                      <div class="log-stream">
+                        @for (log of deployLogs; track log.id) {
+                          <div class="log-line">
+                            <span class="mono dim log-ts">{{ log.timestamp | date:'HH:mm:ss' }}</span>
+                            <span class="log-level mono"
+                                  [style.color]="levelColor(log.level)">{{ log.level }}</span>
+                            <span class="mono log-msg">{{ log.message }}</span>
+                          </div>
+                        }
+                      </div>
+                    }
+                  </div>
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+
+</div>
+
+---- deployments.component.scss ----
+Scoped styles only. Add:
+
+.log-panel-row td { padding: 0; }
+
+.log-panel {
+  background: var(--bg-0);
+  border: 1px solid var(--bg-3);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin: 4px 8px 8px;
+}
+
+.log-stream {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.log-line {
+  display: grid;
+  grid-template-columns: 80px 60px 1fr;
+  gap: 12px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.log-ts  { color: var(--tx-4); }
+.log-msg { color: var(--tx-2); white-space: pre-wrap; word-break: break-all; }
+
+tr.active td { background: var(--bg-2); }
+
+────────────────────────────────────────
+3. EDIT  src/app/app.routes.ts  — add ONE route
+────────────────────────────────────────
+Inside the children array (alongside dashboard, logs, alerts, anomalies), add:
+
+{
+  path: 'deployments',
+  loadComponent: () =>
+    import('./pages/deployments/deployments.component')
+      .then(m => m.DeploymentsComponent)
+}
+
+────────────────────────────────────────
+4. EDIT  src/app/shared/layout/layout.component.html  — add nav item
+────────────────────────────────────────
+Find the existing nav items list (the sidebar links for dashboard, logs, alerts, anomalies).
+Add a new nav item for Deployments in the same style as the others.
+Use this SVG icon (rocket):
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+     stroke-linecap="round" stroke-linejoin="round">
+  <path d="M4.5 16.5c-1.5 1.5-1.5 3.5 0 5 1.5 1.5 3.5 1.5 5 0l8-8"/>
+  <path d="M14 3l7 7-1.5 1.5-7-7z"/>
+  <path d="M9.5 14.5l-4-4 9-9a5 5 0 0 1 7 7z"/>
+  <circle cx="11" cy="13" r="1" fill="currentColor"/>
+</svg>
+Label: "Deployments"
+Route: /deployments
+
+────────────────────────────────────────
+NOTHING ELSE should be changed.
+Do not touch login, dashboard, incidents, metrics, deploy (alerts), settings,
+auth.service, interceptor, guard, styles.scss, or any config files.
+────────────────────────────────────────

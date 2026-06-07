@@ -2,8 +2,10 @@ package com.logguard.backend.service;
 
 import com.logguard.backend.dto.LoginRequest;
 import com.logguard.backend.dto.LoginResponse;
+import com.logguard.backend.dto.RegisterRequest;
 import com.logguard.backend.dto.UserResponse;
 import com.logguard.backend.model.AppUser;
+import com.logguard.backend.model.Role;
 import com.logguard.backend.repository.UserRepository;
 import com.logguard.backend.security.JwtUtil;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +27,7 @@ public class AuthService implements UserDetailsService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final JenkinsService jenkinsService;
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
@@ -49,6 +52,27 @@ public class AuthService implements UserDetailsService {
                         .username(user.getUsername())
                         .role(user.getRole())
                         .build())
+                .build();
+    }
+
+    public UserResponse register(RegisterRequest request) {
+        if (userRepository.findByUsername(request.getUsername()).isPresent()) {
+            throw new IllegalArgumentException("Username already taken: " + request.getUsername());
+        }
+        AppUser user = AppUser.builder()
+                .username(request.getUsername())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .role(Role.VIEWER)
+                .build();
+        user = userRepository.save(user);
+
+        // Mirror the user in Jenkins so they can log in at http://localhost:8090
+        jenkinsService.createUser(request.getUsername(), request.getPassword());
+
+        return UserResponse.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .role(user.getRole())
                 .build();
     }
 

@@ -18,7 +18,27 @@
       "Bash(chmod +x *)",
       "Bash(sudo ss -tlnp)",
       "Bash(docker stop *)",
-      "Bash(docker rm *)"
+      "Bash(docker rm *)",
+      "Bash(./mvnw compile *)",
+      "Bash(./mvnw package *)",
+      "Bash(curl -s http://localhost:8080/api/health)",
+      "Bash(curl -s -X POST http://localhost:8080/api/auth/login -H \"Content-Type: application/json\" -d '{\"username\":\"admin\",\"password\":\"admin123\"}')",
+      "Bash(python3 -m json.tool)",
+      "Bash(docker exec logguard-backend *)",
+      "Bash(docker port *)",
+      "Bash(curl -s --max-time 3 http://localhost:3001)",
+      "Bash(awk '{print $1}')",
+      "Bash(docker inspect *)",
+      "Bash(curl -s http://localhost:3030/api/health)",
+      "Bash(curl -sf http://localhost:3030/api/health)",
+      "Bash(fuser 3030/tcp)",
+      "Bash(xargs -I{} cat /proc/{}/comm)",
+      "Bash(grep -v '^$')",
+      "Bash(curl -sf http://localhost:3300/api/health)",
+      "Bash(curl -sf 'http://localhost:9090/api/v1/query?query=up')",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(r['metric'].get\\('job'\\), r['value'][1]\\) for r in d['data']['result']]\")",
+      "Bash(curl -sf http://localhost:8080/api/health)",
+      "Bash(curl -s http://localhost:8080/api/health/services)"
     ]
   }
 }

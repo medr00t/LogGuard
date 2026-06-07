@@ -10,7 +10,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: none
+      ddl-auto: update
     show-sql: true
 
 server:
@@ -23,6 +23,16 @@ jwt:
 ai:
   engine:
     url: ${AI_ENGINE_URL:http://localhost:5000}
+
+jenkins:
+  url: ${JENKINS_URL:http://localhost:8090}
+  admin:
+    user:  ${JENKINS_ADMIN_USER:admin}
+    token: ${JENKINS_ADMIN_TOKEN:admin123}
+
+logguard:
+  service:
+    token: ${LOGGUARD_SERVICE_TOKEN:logguard-internal-svc-2024}
 
 management:
   endpoints:

@@ -1,5 +1,6 @@
 services:
 
+  # ── LogGuard application database ──────────────────────────────
   postgres:
     image: postgres:15-alpine
     container_name: logguard-postgres
@@ -11,6 +12,90 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  # ── SonarQube database (separate from app DB) ──────────────────
+  sonar-postgres:
+    image: postgres:15-alpine
+    container_name: logguard-sonar-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sonarqube
+      POSTGRES_USER: sonar
+      POSTGRES_PASSWORD: sonar
+    volumes:
+      - sonar_postgres_data:/var/lib/postgresql/data
+
+  # ── Code quality gate ──────────────────────────────────────────
+  sonarqube:
+    image: sonarqube:lts-community
+    container_name: logguard-sonarqube
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    environment:
+      SONAR_JDBC_URL: jdbc:postgresql://sonar-postgres:5432/sonarqube
+      SONAR_JDBC_USERNAME: sonar
+      SONAR_JDBC_PASSWORD: sonar
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_logs:/opt/sonarqube/logs
+      - sonarqube_extensions:/opt/sonarqube/extensions
+    depends_on:
+      - sonar-postgres
+
+  # ── CI/CD engine ───────────────────────────────────────────────
+  jenkins:
+    build:
+      context: ./infrastructure/jenkins
+      dockerfile: Dockerfile
+    container_name: logguard-jenkins
+    restart: unless-stopped
+    user: root
+    ports:
+      - "8090:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - deployments_data:/tmp/deployments
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      JAVA_OPTS: "-Djenkins.install.runSetupWizard=false"
+    depends_on:
+      - sonarqube
+
+  # ── Metrics scraper ────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: logguard-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infrastructure/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=30d'
+    depends_on:
+      - backend
+
+  # ── Metrics dashboards ──────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:latest
+    container_name: logguard-grafana
+    restart: unless-stopped
+    ports:
+      - "3300:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infrastructure/grafana/provisioning:/etc/grafana/provisioning:ro
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin123
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    depends_on:
+      - prometheus
+
+  # ── Python AI log-analysis engine ──────────────────────────────
   ai-engine:
     build: ./ai-engine
     container_name: logguard-ai-engine
@@ -18,21 +103,38 @@ services:
     ports:
       - "5000:5000"
 
+  # ── Spring Boot backend ─────────────────────────────────────────
   backend:
     build: ./backend
     container_name: logguard-backend
     restart: unless-stopped
     ports:
       - "8080:8080"
+      - "3001-3099:3001-3099"
+    volumes:
+      - deployments_data:/tmp/deployments
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/logguard
       SPRING_DATASOURCE_USERNAME: logguard
       SPRING_DATASOURCE_PASSWORD: logguard
-      SPRING_JPA_HIBERNATE_DDL_AUTO: create
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
       AI_ENGINE_URL: http://ai-engine:5000
+      JENKINS_URL: http://jenkins:8080
+      JENKINS_ADMIN_USER: admin
+      JENKINS_ADMIN_TOKEN: admin123
+      LOGGUARD_SERVICE_TOKEN: "logguard-internal-svc-2024"
     depends_on:
       - postgres
       - ai-engine
+      - jenkins
 
 volumes:
   postgres_data:
+  sonar_postgres_data:
+  sonarqube_data:
+  sonarqube_logs:
+  sonarqube_extensions:
+  jenkins_home:
+  deployments_data:
+  prometheus_data:
+  grafana_data:
